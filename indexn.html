@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hazard Detection</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+          integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+          crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+            integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+            crossorigin=""></script>
+</head>
+<body>
+    <h1>Hazard Detection</h1>
+
+    <!-- Capture Image Form -->
+    <form action="/" method="POST" enctype="multipart/form-data" id="imageForm">
+        <label for="image">Upload Image:</label><br>
+        <input type="file" id="image" name="image"><br><br>
+        <input type="submit" value="Submit">
+    </form>
+
+    <!-- Live Camera Capture -->
+    <h2>Capture Live Image</h2>
+    <button id="startCameraButton">Start Camera</button>
+    <button id="captureButton" style="display: none;">Capture Image</button><br><br>
+    <video id="video" width="600" height="400" autoplay style="display: none;"></video>
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <!-- Captured Image Display -->
+    <h2>Captured Image</h2>
+    <img id="capturedImage" style="max-width: 600px; max-height: 400px; display: none;">
+
+    <!-- Submit Captured Image -->
+    <form action="/" method="POST" enctype="multipart/form-data" id="capturedImageForm" style="display: none;">
+        <input type="hidden" id="capturedImageInput" name="captured_image">
+        <input type="submit" value="Submit Captured Image">
+    </form>
+
+    <!-- Hazard Table -->
+    <h2>Hazard Table</h2>
+    <table>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Latitude</th>
+            <th>Longitude</th>
+            <th>Prediction</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for hazard in hazard_data %}
+        <tr>
+            <td>{{ hazard[0] }}</td>
+            <td>{{ hazard[1] }}</td>
+            <td>{{ hazard[2] }}</td>
+            <td>{{ hazard[3] }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Static Map -->
+    <div id="map" style="width: 600px; height: 400px;"></div>
+
+    <!-- JavaScript -->
+    <script>
+        const startCameraButton = document.getElementById('startCameraButton');
+        const captureButton = document.getElementById('captureButton');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const capturedImage = document.getElementById('capturedImage');
+        const capturedImageInput = document.getElementById('capturedImageInput');
+        const capturedImageForm = document.getElementById('capturedImageForm');
+
+        startCameraButton.addEventListener('click', function() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    video.style.display = 'block';
+                    captureButton.style.display = 'block';
+                })
+                .catch(function(err) {
+                    console.error('Error accessing camera:', err);
+                });
+        });
+
+        captureButton.addEventListener('click', function() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageURL = canvas.toDataURL('image/png');
+
+            // Display captured image
+            capturedImage.src = imageURL;
+            capturedImage.style.display = 'block';
+            video.style.display = 'none';
+
+            // Stop the video stream
+            let tracks = video.srcObject.getTracks();
+            tracks.forEach(track => track.stop());
+
+            // Set the captured image data URL as the value of the hidden input
+            capturedImageInput.value = imageURL;
+
+            // Show the submit button for the captured image
+            capturedImageForm.style.display = 'block';
+            captureButton.style.display = 'none';
+        });
+
+        // Get user's current location and display static map
+        function getLocationAndMap() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+
+                    const map = L.map('map').setView([latitude, longitude], 13);
+
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+                    }).addTo(map);
+
+                    L.marker([latitude, longitude]).addTo(map)
+                        .bindPopup('Your Location').openPopup();
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        window.onload = getLocationAndMap;
+    </script>
+</body>
+</html>
